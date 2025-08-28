@@ -4,9 +4,13 @@ defmodule Tidewave do
 
   @impl true
   def init(opts) do
+    external_tools = Keyword.get(opts, :external_tools, nil)
+    init_external_tools(external_tools)
+
     %{
       allowed_origins: Keyword.get(opts, :allowed_origins, nil),
       allow_remote_access: Keyword.get(opts, :allow_remote_access, false),
+      external_tools: external_tools,
       phoenix_endpoint: nil,
       inspect_opts:
         Keyword.get(opts, :inspect_opts, charlists: :as_lists, limit: 50, pretty: true)
@@ -41,5 +45,41 @@ defmodule Tidewave do
 
   defp request_body_parsed?(conn) do
     not match?(%Plug.Conn.Unfetched{}, conn.body_params)
+  end
+
+  def call(conn, _opts), do: conn
+
+  defp init_external_tools(module_names) do
+    case module_names do
+      nil ->
+        :ok
+
+      modules ->
+        new_tools =
+          Enum.map(modules, fn module ->
+            module.tools()
+          end)
+          |> List.flatten()
+
+        dispatch_map =
+          Map.new(new_tools, fn tool ->
+            {tool.name, tool.callback}
+          end)
+
+        add_tools(new_tools, dispatch_map)
+    end
+  end
+
+  def add_tools(new_tools, dispatch_map) do
+    {old_tools, old_dispatch_map} =
+      case :ets.lookup(:tidewave_tools, :tools) do
+        [{:tools, {tools, dmap}}] -> {tools, dmap}
+        [] -> {[], %{}}
+      end
+
+    updated_tools = old_tools ++ new_tools
+    updated_dispatch_map = Map.merge(old_dispatch_map, dispatch_map)
+
+    :ets.insert(:tidewave_tools, {:tools, {updated_tools, updated_dispatch_map}})
   end
 end
