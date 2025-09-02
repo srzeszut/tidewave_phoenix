@@ -70,9 +70,6 @@ defmodule Tidewave.MCP.Server do
       %{^name => callback} when is_function(callback, 1) ->
         callback.(args)
 
-      %{^name => callback} when is_function(callback, 0) ->
-        callback.()
-
       _ ->
         {:error,
          %{

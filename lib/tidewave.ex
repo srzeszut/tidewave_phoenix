@@ -47,8 +47,6 @@ defmodule Tidewave do
     not match?(%Plug.Conn.Unfetched{}, conn.body_params)
   end
 
-  def call(conn, _opts), do: conn
-
   defp init_external_tools(module_names) do
     case module_names do
       nil ->
@@ -77,6 +75,7 @@ defmodule Tidewave do
         [] -> {[], %{}}
       end
 
+    new_tools = Enum.filter(new_tools, fn tool -> !Enum.member?(old_tools, tool) end)
     updated_tools = old_tools ++ new_tools
     updated_dispatch_map = Map.merge(old_dispatch_map, dispatch_map)
 
