@@ -47,35 +47,28 @@ defmodule Tidewave do
     not match?(%Plug.Conn.Unfetched{}, conn.body_params)
   end
 
+  defp init_external_tools(nil), do: :ok
+
   defp init_external_tools(module_names) do
-    case module_names do
-      nil ->
-        :ok
+    new_tools =
+      module_names
+      |> Enum.uniq()
+      |> Enum.flat_map(& &1.tools())
 
-      modules ->
-        new_tools =
-          Enum.map(modules, fn module ->
-            module.tools()
-          end)
-          |> List.flatten()
+    dispatch_map =
+      Map.new(new_tools, &{&1.name, &1.callback})
 
-        dispatch_map =
-          Map.new(new_tools, fn tool ->
-            {tool.name, tool.callback}
-          end)
-
-        add_tools(new_tools, dispatch_map)
-    end
+    add_tools(new_tools, dispatch_map)
   end
 
-  def add_tools(new_tools, dispatch_map) do
+  defp add_tools(new_tools, dispatch_map) do
     {old_tools, old_dispatch_map} =
       case :ets.lookup(:tidewave_tools, :tools) do
         [{:tools, {tools, dmap}}] -> {tools, dmap}
         [] -> {[], %{}}
       end
 
-    new_tools = Enum.filter(new_tools, fn tool -> !Enum.member?(old_tools, tool) end)
+    new_tools = Enum.reject(new_tools, &(&1 in old_tools))
     updated_tools = old_tools ++ new_tools
     updated_dispatch_map = Map.merge(old_dispatch_map, dispatch_map)
 
